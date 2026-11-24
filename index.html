@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#090b12">
+  <meta name="description" content="DEADBALLS 2 — survive the dead. An arcade zombie survival shooter from Mad Purple Hat Games.">
+  <title>DEADBALLS 2 — Mad Purple Hat Games</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="game-shell">
+    <canvas id="game" aria-label="DEADBALLS 2 game arena"></canvas>
+    <div id="vignette"></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">◈</span><span>DEADBALLS <b>2</b></span></div>
+      <div class="top-actions">
+        <button id="soundBtn" class="icon-btn" aria-label="Toggle sound">SOUND: ON</button>
+        <button id="fullscreenBtn" class="icon-btn">FULLSCREEN</button>
+      </div>
+    </header>
+    <section id="hud" class="hud hidden">
+      <div class="hud-left">
+        <div class="hud-label">WAVE <strong id="waveValue">1</strong></div>
+        <div class="bar-wrap"><span>HEALTH</span><div class="bar"><i id="healthBar"></i></div><b id="healthValue">100</b></div>
+        <div class="bar-wrap"><span>XP</span><div class="bar xp"><i id="xpBar"></i></div><b id="xpValue">0</b></div>
+      </div>
+      <div class="hud-right">
+        <div class="score-label">SCORE <strong id="scoreValue">000000</strong></div>
+        <div class="weapon-readout"><strong id="weaponName">SIDEARM</strong><span id="ammoValue">12 / 60</span></div>
+        <div class="small-hint">[1] PISTOL &nbsp; [2] SHOTGUN &nbsp; [3] AUTO</div>
+      </div>
+    </section>
+    <div id="centerMessage" class="center-message hidden"></div>
+    <section id="menu" class="overlay">
+      <div class="menu-panel">
+        <div class="eyebrow">MAD PURPLE HAT GAMES PRESENTS</div>
+        <h1>DEADBALLS <span>2</span></h1>
+        <div class="subtitle">THE DEAD DON'T STAY DOWN.</div>
+        <p class="intro">Hold the line. Keep moving. Make every shot count.</p>
+        <button id="startBtn" class="main-btn">START SURVIVAL</button>
+        <div class="menu-meta"><span>ARCADE SURVIVAL</span><span>BUILD 0.1.0</span></div>
+        <div class="controls-copy">
+          <b>DESKTOP</b> WASD / arrows move · Mouse aim & fire · R reload · 1–3 weapons · Space dash<br>
+          <b>MOBILE</b> Left pad moves · FIRE button shoots · weapon buttons switch
+        </div>
+      </div>
+    </section>
+    <section id="pauseMenu" class="overlay hidden">
+      <div class="menu-panel compact">
+        <div class="eyebrow">TAKE A BREATH</div><h2>PAUSED</h2>
+        <button id="resumeBtn" class="main-btn">RESUME</button>
+        <button id="restartBtn" class="secondary-btn">RESTART RUN</button>
+      </div>
+    </section>
+    <section id="gameOver" class="overlay hidden">
+      <div class="menu-panel compact">
+        <div class="eyebrow">THE HORDE WON THIS ROUND</div><h2>YOU'RE DEAD.</h2>
+        <div class="final-stats">SCORE <strong id="finalScore">0</strong><br>WAVE REACHED <strong id="finalWave">1</strong><br>KILLS <strong id="finalKills">0</strong></div>
+        <button id="againBtn" class="main-btn">TRY AGAIN</button>
+      </div>
+    </section>
+    <div id="mobileControls" class="mobile-controls">
+      <div class="move-pad" id="movePad"><span class="pad-center"></span><span class="pad-label">MOVE</span></div>
+      <div class="mobile-actions">
+        <button id="dashBtn" class="touch-btn dash">DASH</button>
+        <button id="fireBtn" class="touch-btn fire">FIRE</button>
+        <div class="weapon-buttons"><button data-weapon="0">1</button><button data-weapon="1">2</button><button data-weapon="2">3</button><button id="reloadBtn">R</button></div>
+      </div>
+    </div>
+    <footer class="footer"><span>INDEPENDENT DEVELOPMENT · MAD PURPLE HAT GAMES</span><span>DEADBALLS 2</span></footer>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>

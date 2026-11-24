@@ -1,0 +1,80 @@
+(() => {
+"use strict";
+const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
+const $ = id => document.getElementById(id);
+const ui = {
+ menu:$("menu"), pause:$("pauseMenu"), over:$("gameOver"), hud:$("hud"),
+ wave:$("waveValue"), health:$("healthValue"), healthBar:$("healthBar"), xp:$("xpValue"), xpBar:$("xpBar"),
+ score:$("scoreValue"), weapon:$("weaponName"), ammo:$("ammoValue"), center:$("centerMessage")
+};
+let W=0,H=0,DPR=1,last=0, running=false, paused=false, ended=false, soundOn=true;
+let player, enemies=[], bullets=[], enemyBullets=[], particles=[], pickups=[], decor=[];
+let keys={}, mouse={x:0,y:0,down:false,seen:false}, score=0,kills=0,wave=1,spawnLeft=0,spawnTimer=0,shake=0,elapsed=0;
+let moveTouch={active:false,x:0,y:0,dx:0,dy:0}, fireTouch=false;
+const weapons=[
+ {name:"SIDEARM",mag:12,reserve:72,rate:.22,reload:1.0,damage:34,speed:760,pellets:1,spread:.035},
+ {name:"BREACHER",mag:6,reserve:42,rate:.62,reload:1.35,damage:22,speed:610,pellets:6,spread:.34},
+ {name:"RIPPER",mag:30,reserve:180,rate:.095,reload:1.5,damage:15,speed:820,pellets:1,spread:.075}
+];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), rand=(a,b)=>a+Math.random()*(b-a), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);canvas.style.width=W+"px";canvas.style.height=H+"px";ctx.setTransform(DPR,0,0,DPR,0,0);if(player){player.x=clamp(player.x,30,W-30);player.y=clamp(player.y,30,H-30)}}
+addEventListener("resize",resize); resize();
+let audioCtx=null;
+function tone(freq=180,dur=.07,type="square",vol=.035,slide=0){if(!soundOn)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,freq+slide),audioCtx.currentTime+dur);g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
+function reset(){player={x:W/2,y:H/2,r:15,hp:100,maxHp:100,speed:245,angle:0,weapon:0,ammo:weapons.map(w=>w.mag),reserve:weapons.map(w=>w.reserve),cool:0,reload:0,dash:0,dashCd:0,xp:0,level:1,invuln:0};enemies=[];bullets=[];enemyBullets=[];particles=[];pickups=[];score=0;kills=0;wave=1;spawnLeft=8;spawnTimer=.5;shake=0;elapsed=0;ended=false;paused=false;running=true;ui.menu.classList.add("hidden");ui.pause.classList.add("hidden");ui.over.classList.add("hidden");ui.hud.classList.remove("hidden");say("WAVE 1",1.2);updateHud()}
+function say(t,d=1){ui.center.textContent=t;ui.center.classList.remove("hidden");messageTimer=d}
+let messageTimer=0;
+function start(){reset();last=performance.now();requestAnimationFrame(loop)}
+function gameOver(){running=false;ended=true;ui.hud.classList.add("hidden");$("finalScore").textContent=score.toLocaleString();$("finalWave").textContent=wave;$("finalKills").textContent=kills;ui.over.classList.remove("hidden");tone(90,.5,"sawtooth",.06,-55)}
+function updateHud(){if(!player)return;ui.wave.textContent=wave;ui.health.textContent=Math.ceil(player.hp);ui.healthBar.style.width=100*player.hp/player.maxHp+"%";ui.xp.textContent=player.xp+"/"+(player.level*100);ui.xpBar.style.width=100*player.xp/(player.level*100)+"%";ui.score.textContent=String(score).padStart(6,"0");let w=weapons[player.weapon];ui.weapon.textContent=w.name;ui.ammo.textContent=player.reload>0?"RELOADING":player.ammo[player.weapon]+" / "+player.reserve[player.weapon]}
+function spawnEnemy(){let edge=Math.floor(Math.random()*4),x=edge===0?rand(0,W):edge===1?W+25:edge===2?rand(0,W):-25,y=edge===0?-25:edge===1?rand(0,H):edge===2?H+25:rand(0,H);let type="walker";let roll=Math.random();if(wave>=2&&roll>.68)type="runner";if(wave>=3&&roll>.83)type="brute";if(wave>=4&&roll>.92)type="spitter";let scale=1+wave*.075;let e={x,y,type,hp: (type==="brute"?150:type==="runner"?42:type==="spitter"?58:70)*scale,maxHp:0,r:type==="brute"?22:type==="runner"?11:15,speed:(type==="runner"?125:type==="brute"?42:type==="spitter"?48:65)+wave*2,damage:type==="brute"?24: type==="runner"?10:14,attack:0,flash:0};e.maxHp=e.hp;enemies.push(e)}
+function spawnBoss(){let e={x:W/2,y:-55,type:"boss",hp:950+wave*140,maxHp:950+wave*140,r:38,speed:38+wave,damage:30,attack:1.5,flash:0};enemies.push(e);say("BOSS INCOMING",2);tone(65,.7,"sawtooth",.07,-25)}
+function shoot(){if(!running||paused||ended)return;let w=weapons[player.weapon];if(player.reload>0)return;if(player.ammo[player.weapon]<=0){reload();return}if(player.cool>0)return;player.cool=w.rate;player.ammo[player.weapon]--;let a=player.angle;for(let i=0;i<w.pellets;i++){let ang=a+(Math.random()-.5)*w.spread;bullets.push({x:player.x+Math.cos(ang)*19,y:player.y+Math.sin(ang)*19,vx:Math.cos(ang)*w.speed,vy:Math.sin(ang)*w.speed,life:.85,damage:w.damage, r:player.weapon===1?3:2.5})}burst(player.x+Math.cos(a)*21,player.y+Math.sin(a)*21,"#ffd27a",4);tone(player.weapon===1?105:player.weapon===2?230:160,.055,player.weapon===1?"sawtooth":"square",.025,-50)}
+function reload(){let i=player.weapon,w=weapons[i];if(player.reload>0||player.ammo[i]===w.mag||player.reserve[i]<=0)return;player.reload=w.reload;tone(330,.06,"triangle",.02,-100)}
+function switchWeapon(i){if(i<0||i>2)return;player.weapon=i;player.reload=0;updateHud();tone(440,.04,"triangle",.015,100)}
+function burst(x,y,color,n=8){for(let i=0;i<n;i++){let a=rand(0,Math.PI*2),s=rand(40,240);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.15,.5),max:.5,color,size:rand(1,4)})}}
+function drop(e){if(Math.random()<.17)pickups.push({x:e.x,y:e.y,type:Math.random()<.65?"health":"ammo",life:12})}
+function hurt(n){if(player.invuln>0)return;player.hp-=n;player.invuln=.45;shake=9;burst(player.x,player.y,"#e54b58",12);tone(95,.13,"sawtooth",.04,-40);if(player.hp<=0){player.hp=0;gameOver()}}
+function gainXp(n){player.xp+=n;if(player.xp>=player.level*100){player.xp-=player.level*100;player.level++;player.maxHp+=8;player.hp=Math.min(player.maxHp,player.hp+25);player.speed+=5;say("LEVEL UP  ·  +25 HEALTH",1.6);tone(520,.25,"triangle",.04,400)}}
+function dash(){if(player.dashCd>0)return;let dx=(keys.d||keys.ArrowRight?1:0)-(keys.a||keys.ArrowLeft?1:0)+moveTouch.dx,dy=(keys.s||keys.ArrowDown?1:0)-(keys.w||keys.ArrowUp?1:0)+moveTouch.dy;let l=Math.hypot(dx,dy);if(l<.1){dx=Math.cos(player.angle);dy=Math.sin(player.angle);l=1}player.dash=.17;player.dashCd=2.1;player.dashX=dx/l;player.dashY=dy/l;player.invuln=.25;tone(180,.12,"sawtooth",.03,400)}
+function update(dt){elapsed+=dt;if(messageTimer>0){messageTimer-=dt;if(messageTimer<=0)ui.center.classList.add("hidden")}player.cool=Math.max(0,player.cool-dt);player.dashCd=Math.max(0,player.dashCd-dt);player.invuln=Math.max(0,player.invuln-dt);if(player.reload>0){player.reload-=dt;if(player.reload<=0){let i=player.weapon,w=weapons[i],need=w.mag-player.ammo[i],take=Math.min(need,player.reserve[i]);player.ammo[i]+=take;player.reserve[i]-=take;tone(510,.06,"triangle",.02,100)}} 
+let mx=(keys.d||keys.ArrowRight?1:0)-(keys.a||keys.ArrowLeft?1:0)+moveTouch.dx,my=(keys.s||keys.ArrowDown?1:0)-(keys.w||keys.ArrowUp?1:0)+moveTouch.dy;let ml=Math.hypot(mx,my);if(ml>1){mx/=ml;my/=ml}if(player.dash>0){player.dash-=dt;player.x+=player.dashX*760*dt;player.y+=player.dashY*760*dt;burst(player.x,player.y,"#a855f7",1)}else{player.x+=mx*player.speed*dt;player.y+=my*player.speed*dt}player.x=clamp(player.x,20,W-20);player.y=clamp(player.y,20,H-20);
+if(mouse.seen){player.angle=Math.atan2(mouse.y-player.y,mouse.x-player.x)}else if(enemies.length){let e=enemies.reduce((a,b)=>dist(a,player)<dist(b,player)?a:b);player.angle=Math.atan2(e.y-player.y,e.x-player.x)}
+if(mouse.down||fireTouch)shoot();
+spawnTimer-=dt;if(spawnLeft>0&&spawnTimer<=0){spawnEnemy();spawnLeft--;spawnTimer=Math.max(.22,.9-wave*.035)*rand(.65,1.3)}if(spawnLeft===0&&enemies.length===0){wave++;spawnLeft=7+wave*3;spawnTimer=1.1;if(wave%5===0)spawnBoss();say("WAVE "+wave,1.4);player.hp=Math.min(player.maxHp,player.hp+8)}
+for(let i=enemies.length-1;i>=0;i--){let e=enemies[i];e.flash=Math.max(0,e.flash-dt);e.attack-=dt;let a=Math.atan2(player.y-e.y,player.x-e.x),d=Math.hypot(player.x-e.x,player.y-e.y);if(e.type==="spitter"){if(d>250){e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt}else if(e.attack<=0){e.attack=2.1;enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*250,vy:Math.sin(a)*250,life:2,r:6});tone(270,.08,"sawtooth",.015,-80)}}else{e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt}if(d<e.r+player.r+3&&e.attack<=0){e.attack=e.type==="boss"?.8:.85;hurt(e.damage)}}
+for(let i=bullets.length-1;i>=0;i--){let b=bullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;let hit=false;for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+b.r){e.hp-=b.damage;e.flash=.08;burst(b.x,b.y,"#f7d68a",2);hit=true;if(e.hp<=0){score+=e.type==="boss"?1500:e.type==="brute"?160:e.type==="runner"?90:70;kills++;gainXp(e.type==="boss"?70:12);drop(e);burst(e.x,e.y,e.type==="boss"?"#a855f7":"#70a86c",e.type==="boss"?30:12);enemies.splice(j,1);if(e.type==="boss"){say("BOSS ELIMINATED",1.6);player.hp=Math.min(player.maxHp,player.hp+35)}}break}}if(hit||b.life<=0||b.x<0||b.x>W||b.y<0||b.y>H)bullets.splice(i,1)}
+for(let i=enemyBullets.length-1;i>=0;i--){let b=enemyBullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(Math.hypot(b.x-player.x,b.y-player.y)<player.r+b.r){hurt(12);enemyBullets.splice(i,1)}else if(b.life<=0)enemyBullets.splice(i,1)}
+for(let i=pickups.length-1;i>=0;i--){let p=pickups[i];p.life-=dt;if(Math.hypot(p.x-player.x,p.y-player.y)<player.r+15){if(p.type==="health")player.hp=Math.min(player.maxHp,player.hp+24);else for(let j=0;j<3;j++)player.reserve[j]+=j===1?8:24;score+=25;tone(650,.12,"sine",.03,220);pickups.splice(i,1)}else if(p.life<=0)pickups.splice(i,1)}
+for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;if(p.life<=0)particles.splice(i,1)}
+shake=Math.max(0,shake-dt*28);updateHud()}
+function draw(){ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));ctx.fillStyle="#0b1018";ctx.fillRect(0,0,W,H);
+let tile=48;for(let y=0;y<H+tile;y+=tile)for(let x=0;x<W+tile;x+=tile){let n=(Math.floor(x/tile)*13+Math.floor(y/tile)*7)%5;ctx.fillStyle=n===0?"#111a22":n===1?"#0d151e":"#0e1720";ctx.fillRect(x,y,tile-1,tile-1);ctx.strokeStyle="#ffffff08";ctx.strokeRect(x+.5,y+.5,tile-2,tile-2)}
+// arena markings and debris
+ctx.strokeStyle="#a855f718";ctx.lineWidth=2;ctx.beginPath();ctx.arc(W/2,H/2,Math.min(W,H)*.29,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(W/2,H/2,Math.min(W,H)*.31,0,Math.PI*2);ctx.stroke();
+for(let d of decor){ctx.fillStyle=d.c;ctx.fillRect(d.x,d.y,d.w,d.h)}
+for(let p of pickups){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(elapsed*2);ctx.fillStyle=p.type==="health"?"#5ee28b":"#f6c65b";ctx.shadowBlur=18;ctx.shadowColor=ctx.fillStyle;ctx.fillRect(-8,-8,16,16);ctx.restore()}
+for(let b of bullets){ctx.fillStyle="#ffd98a";ctx.shadowBlur=12;ctx.shadowColor="#ffb84d";ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}ctx.shadowBlur=0;
+for(let b of enemyBullets){ctx.fillStyle="#a855f7";ctx.shadowBlur=12;ctx.shadowColor="#a855f7";ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}ctx.shadowBlur=0;
+for(let e of enemies){ctx.save();ctx.translate(e.x,e.y);let color=e.type==="boss"?"#7137a8":e.type==="brute"?"#9a5b38":e.type==="runner"?"#b3a15c":e.type==="spitter"?"#6d9c55":"#587d55";ctx.fillStyle=e.flash>0?"#fff":color;ctx.shadowBlur=e.type==="boss"?24:8;ctx.shadowColor=e.type==="boss"?"#a855f7":"#293f2d";ctx.beginPath();ctx.arc(0,0,e.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle="#1b1112";ctx.beginPath();ctx.arc(-e.r*.32,-3,3,0,Math.PI*2);ctx.arc(e.r*.32,-3,3,0,Math.PI*2);ctx.fill();ctx.fillStyle="#f2d7b0";ctx.fillRect(-e.r*.4,e.r*.35,e.r*.8,3);if(e.type==="boss"||e.hp<e.maxHp){ctx.fillStyle="#260d13";ctx.fillRect(-e.r,-e.r-9,e.r*2,4);ctx.fillStyle="#ef4444";ctx.fillRect(-e.r,-e.r-9,e.r*2*e.hp/e.maxHp,4)}ctx.restore()}
+for(let p of particles){ctx.globalAlpha=clamp(p.life/.5,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size)}ctx.globalAlpha=1;
+if(player){ctx.save();ctx.translate(player.x,player.y);ctx.rotate(player.angle);ctx.fillStyle="#b8c4d0";ctx.fillRect(3,-5,24,10);ctx.fillStyle="#3c4c60";ctx.fillRect(-9,-12,24,24);ctx.fillStyle="#a855f7";ctx.fillRect(-7,-8,12,16);ctx.fillStyle="#e2e8f0";ctx.beginPath();ctx.arc(0,0,player.r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#6d28d9";ctx.fillRect(-5,-5,10,10);ctx.restore();if(player.invuln>0&&Math.floor(elapsed*18)%2===0){ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(player.x,player.y,player.r+6,0,Math.PI*2);ctx.stroke()}}
+ctx.restore()}
+function loop(t){if(!running||paused)return;let dt=Math.min((t-last)/1000,.033);last=t;update(dt);draw();if(running&&!paused)requestAnimationFrame(loop)}
+function pause(){if(!running||ended)return;paused=true;ui.pause.classList.remove("hidden")}
+function resume(){if(!paused)return;paused=false;ui.pause.classList.add("hidden");last=performance.now();requestAnimationFrame(loop)}
+function setMouse(e){let r=canvas.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;mouse.seen=true}
+canvas.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")setMouse(e)});
+canvas.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"){setMouse(e);mouse.down=true}});
+addEventListener("pointerup",e=>{if(e.pointerType==="mouse")mouse.down=false});
+addEventListener("keydown",e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;if([" ","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key))e.preventDefault();keys[k]=true;if(!player)return;if(k==="r")reload();if(k==="1")switchWeapon(0);if(k==="2")switchWeapon(1);if(k==="3")switchWeapon(2);if(k===" "&&!e.repeat)dash();if(k==="Escape"){paused?resume():pause()}});
+addEventListener("keyup",e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false});
+$("startBtn").onclick=start;$("againBtn").onclick=start;$("restartBtn").onclick=start;$("resumeBtn").onclick=resume;$("fullscreenBtn").onclick=()=>{let el=$("game-shell");if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.()};
+$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(soundOn)tone(500,.07,"sine")};
+$("dashBtn").addEventListener("pointerdown",e=>{e.preventDefault();dash()});$("fireBtn").addEventListener("pointerdown",e=>{e.preventDefault();fireTouch=true});["pointerup","pointercancel","pointerleave"].forEach(ev=>$("fireBtn").addEventListener(ev,e=>{e.preventDefault();fireTouch=false}));
+$("reloadBtn").onclick=reload;document.querySelectorAll("[data-weapon]").forEach(b=>b.addEventListener("click",()=>switchWeapon(+b.dataset.weapon)));
+const pad=$("movePad");function padMove(e){let r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.36,l=Math.hypot(dx,dy);if(l>max){dx*=max/l;dy*=max/l}moveTouch.dx=dx/max;moveTouch.dy=dy/max;let dot=pad.querySelector(".pad-center");dot.style.transform=`translate(${dx}px,${dy}px)`}
+pad.addEventListener("pointerdown",e=>{e.preventDefault();moveTouch.active=true;pad.setPointerCapture(e.pointerId);padMove(e)});pad.addEventListener("pointermove",e=>{if(moveTouch.active)padMove(e)});["pointerup","pointercancel","lostpointercapture"].forEach(ev=>pad.addEventListener(ev,()=>{moveTouch.active=false;moveTouch.dx=moveTouch.dy=0;pad.querySelector(".pad-center").style.transform=""}));
+function initDecor(){decor=[];for(let i=0;i<Math.floor(W*H/28000);i++)decor.push({x:rand(20,W-20),y:rand(80,H-80),w:rand(8,23),h:rand(3,8),c:"#28313a"})}initDecor();addEventListener("resize",initDecor);
+draw();
+})();
