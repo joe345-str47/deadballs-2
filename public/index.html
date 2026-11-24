@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#090b12">
-  <meta name="description" content="DEADBALLS 2 — survive the dead. An arcade zombie survival shooter from Mad Purple Hat Games.">
+  <meta name="description" content="DEADBALLS 2 — survive the dead alone or online. An arcade zombie shooter from Mad Purple Hat Games.">
   <title>DEADBALLS 2 — Mad Purple Hat Games</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23090b12'/%3E%3Ccircle cx='16' cy='16' r='10' fill='%23a855f7'/%3E%3Ccircle cx='12' cy='13' r='2' fill='%23f6c65b'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +16,10 @@
     <header class="topbar">
       <div class="brand"><span class="brand-mark">◈</span><span>DEADBALLS <b>2</b></span></div>
       <div class="top-actions">
+        <button id="roomBadge" class="icon-btn room-badge hidden" title="Copy the invite link">ROOM ----</button>
+        <button id="netBadge" class="icon-btn hidden" title="Connection">-- MS</button>
         <button id="soundBtn" class="icon-btn" aria-label="Toggle sound">SOUND: ON</button>
+        <button id="pauseBtn" class="icon-btn" aria-label="Pause">PAUSE</button>
         <button id="fullscreenBtn" class="icon-btn">FULLSCREEN</button>
       </div>
     </header>
@@ -24,42 +28,96 @@
         <div class="hud-label">WAVE <strong id="waveValue">1</strong></div>
         <div class="bar-wrap"><span>HEALTH</span><div class="bar"><i id="healthBar"></i></div><b id="healthValue">100</b></div>
         <div class="bar-wrap"><span>XP</span><div class="bar xp"><i id="xpBar"></i></div><b id="xpValue">0</b></div>
+        <ul id="playersHud" class="players-hud"></ul>
       </div>
       <div class="hud-right">
         <div class="score-label">SCORE <strong id="scoreValue">000000</strong></div>
-        <div class="weapon-readout"><strong id="weaponName">SIDEARM</strong><span id="ammoValue">12 / 60</span></div>
-        <div class="small-hint">[1] PISTOL &nbsp; [2] SHOTGUN &nbsp; [3] AUTO</div>
+        <div class="weapon-readout"><strong id="weaponName">SIDEARM</strong><span id="ammoValue">12 / 72</span></div>
+        <div id="modeLine" class="small-hint">SOLO · [1] PISTOL [2] SHOTGUN [3] AUTO</div>
       </div>
     </section>
     <div id="centerMessage" class="center-message hidden"></div>
+    <div id="subMessage" class="sub-message hidden"></div>
+
     <section id="menu" class="overlay">
       <div class="menu-panel">
         <div class="eyebrow">MAD PURPLE HAT GAMES PRESENTS</div>
         <h1>DEADBALLS <span>2</span></h1>
         <div class="subtitle">THE DEAD DON'T STAY DOWN.</div>
-        <p class="intro">Hold the line. Keep moving. Make every shot count.</p>
-        <button id="startBtn" class="main-btn">START SURVIVAL</button>
-        <div class="menu-meta"><span>ARCADE SURVIVAL</span><span>BUILD 0.1.0</span></div>
+        <p class="intro">Hold the line alone, or bring up to three friends into the horde.</p>
+        <button id="startBtn" class="main-btn">SOLO SURVIVAL</button>
+
+        <div class="online-block">
+          <div class="online-title">PLAY ONLINE</div>
+          <label class="field">
+            <span>NAME</span>
+            <input id="nameInput" maxlength="12" autocomplete="off" spellcheck="false" placeholder="SURVIVOR">
+          </label>
+          <div class="seg" role="group" aria-label="Game mode">
+            <button id="modeCoop" class="seg-btn active" data-mode="coop">CO-OP SURVIVAL</button>
+            <button id="modePvp" class="seg-btn" data-mode="pvp">PVP DEATHMATCH</button>
+          </div>
+          <div class="online-row">
+            <button id="createBtn" class="main-btn small">CREATE ROOM</button>
+          </div>
+          <div class="join-row">
+            <input id="codeInput" maxlength="4" autocomplete="off" spellcheck="false" placeholder="CODE" aria-label="Room code">
+            <button id="joinBtn" class="secondary-btn small">JOIN</button>
+          </div>
+          <div id="menuStatus" class="status-line">Server-authoritative rooms for 2–4 survivors.</div>
+        </div>
+
+        <div class="menu-meta"><span>ARCADE SURVIVAL + PVP</span><span>BUILD 0.2.0</span></div>
         <div class="controls-copy">
-          <b>DESKTOP</b> WASD / arrows move · Mouse aim & fire · R reload · 1–3 weapons · Space dash<br>
-          <b>MOBILE</b> Left pad moves · FIRE button shoots · weapon buttons switch
+          <b>DESKTOP</b> WASD / arrows move · Mouse aim & fire · R reload · 1–3 weapons · Space dash · Esc pause<br>
+          <b>MOBILE</b> Left pad moves · FIRE shoots · weapon buttons switch
         </div>
       </div>
     </section>
+
+    <section id="waiting" class="overlay hidden">
+      <div class="menu-panel compact">
+        <div class="eyebrow">PRIVATE ROOM</div>
+        <h2 id="waitingCode">----</h2>
+        <div id="waitingText" class="status-line">Share the code. Waiting for a second survivor…</div>
+        <ul id="waitingPlayers" class="lobby-list"></ul>
+        <button id="copyLinkBtn" class="main-btn">COPY INVITE LINK</button>
+        <button id="waitingLeaveBtn" class="secondary-btn">LEAVE ROOM</button>
+      </div>
+    </section>
+
     <section id="pauseMenu" class="overlay hidden">
       <div class="menu-panel compact">
         <div class="eyebrow">TAKE A BREATH</div><h2>PAUSED</h2>
         <button id="resumeBtn" class="main-btn">RESUME</button>
         <button id="restartBtn" class="secondary-btn">RESTART RUN</button>
+        <button id="pauseLeaveBtn" class="secondary-btn hidden">LEAVE ROOM</button>
       </div>
     </section>
+
     <section id="gameOver" class="overlay hidden">
       <div class="menu-panel compact">
-        <div class="eyebrow">THE HORDE WON THIS ROUND</div><h2>YOU'RE DEAD.</h2>
-        <div class="final-stats">SCORE <strong id="finalScore">0</strong><br>WAVE REACHED <strong id="finalWave">1</strong><br>KILLS <strong id="finalKills">0</strong></div>
+        <div id="overEyebrow" class="eyebrow">THE HORDE WON THIS ROUND</div>
+        <h2 id="overTitle">YOU'RE DEAD.</h2>
+        <div id="overWinner" class="over-winner hidden">—</div>
+        <div class="final-stats">SCORE <strong id="finalScore">000000</strong><br>WAVE REACHED <strong id="finalWave">1</strong><br>KILLS <strong id="finalKills">0</strong></div>
         <button id="againBtn" class="main-btn">TRY AGAIN</button>
+        <button id="overLeaveBtn" class="secondary-btn hidden">BACK TO MENU</button>
       </div>
     </section>
+
+    <section id="respawn" class="overlay soft hidden">
+      <div class="respawn-box">
+        <div class="eyebrow">YOU'RE DOWN</div>
+        <div id="respawnText" class="respawn-text">RESPAWNING IN 3</div>
+        <div id="respawnHint" class="status-line">Your team fights on.</div>
+      </div>
+    </section>
+
+    <div id="loading" class="overlay">
+      <div class="loading-box"><div class="eyebrow">LOADING ARENA</div><div class="loading-bar"><i></i></div></div>
+    </div>
+
     <div id="mobileControls" class="mobile-controls">
       <div class="move-pad" id="movePad"><span class="pad-center"></span><span class="pad-label">MOVE</span></div>
       <div class="mobile-actions">
@@ -70,6 +128,6 @@
     </div>
     <footer class="footer"><span>INDEPENDENT DEVELOPMENT · MAD PURPLE HAT GAMES</span><span>DEADBALLS 2</span></footer>
   </main>
-  <script src="game.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

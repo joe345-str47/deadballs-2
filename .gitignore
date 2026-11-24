@@ -1,1 +1,4 @@
 conversations/
+node_modules/
+.wrangler/
+node_modules

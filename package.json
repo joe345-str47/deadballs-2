@@ -1,0 +1,17 @@
+{
+  "name": "deadballs-2",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "DEADBALLS 2 - co-op survivor shooter with online multiplayer",
+  "scripts": {
+    "dev": "node server/dev.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "node test/e2e.mjs",
+    "sprites": "node tools/gen-sprites.mjs",
+    "deploy": "wrangler deploy --config worker/wrangler.toml"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

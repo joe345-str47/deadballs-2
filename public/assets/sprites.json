@@ -1,0 +1,98 @@
+{
+  "generated": "tools/gen-sprites.mjs",
+  "players": [
+    {
+      "file": "assets/survivor-1.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    },
+    {
+      "file": "assets/survivor-2.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    },
+    {
+      "file": "assets/survivor-3.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    },
+    {
+      "file": "assets/survivor-4.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    }
+  ],
+  "sheets": {
+    "walker": {
+      "file": "assets/walker.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    },
+    "runner": {
+      "file": "assets/runner.png",
+      "frameW": 40,
+      "frameH": 40,
+      "frames": 4,
+      "scale": 2
+    },
+    "brute": {
+      "file": "assets/brute.png",
+      "frameW": 68,
+      "frameH": 68,
+      "frames": 4,
+      "scale": 2
+    },
+    "spitter": {
+      "file": "assets/spitter.png",
+      "frameW": 48,
+      "frameH": 48,
+      "frames": 4,
+      "scale": 2
+    },
+    "boss": {
+      "file": "assets/boss.png",
+      "frameW": 128,
+      "frameH": 128,
+      "frames": 4,
+      "scale": 2
+    },
+    "pickups": {
+      "file": "assets/pickups.png",
+      "frameW": 32,
+      "frameH": 32,
+      "frames": 2,
+      "scale": 2
+    },
+    "fx": {
+      "file": "assets/fx.png",
+      "frameW": 32,
+      "frameH": 32,
+      "frames": 4,
+      "scale": 2
+    },
+    "bullets": {
+      "file": "assets/bullets.png",
+      "frameW": 20,
+      "frameH": 20,
+      "frames": 2,
+      "scale": 2
+    },
+    "tiles": {
+      "file": "assets/tiles.png",
+      "frameW": 128,
+      "frameH": 128,
+      "frames": 2,
+      "scale": 2
+    }
+  }
+}
